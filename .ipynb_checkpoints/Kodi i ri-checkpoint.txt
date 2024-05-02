@@ -1,0 +1,71 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Load data from CSV file
+sales_data = pd.read_csv('store_sales.csv')
+
+# Extract day of the week and hour of the day from the date column
+sales_data['Date'] = pd.to_datetime(sales_data['Date'])
+sales_data['DayOfWeek'] = sales_data['Date'].dt.day_name()
+sales_data['HourOfDay'] = sales_data['Date'].dt.hour
+
+# Split data into training and testing sets
+X = sales_data[['DayOfWeek', 'HourOfDay', 'ProductName']]
+y = sales_data['Sales']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create dictionary of machine learning models to test
+models = {'Linear Regression': LinearRegression(),
+          'Decision Tree': DecisionTreeRegressor(),
+          'Random Forest': RandomForestRegressor(n_estimators=100)}
+
+# Train and test each model, and create table of accuracy metrics
+metrics = []
+for model_name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    r2 = r2_score(y_test, y_pred)
+    metrics.append([model_name, rmse, r2])
+metrics_df = pd.DataFrame(metrics, columns=['Model', 'RMSE', 'R-squared'])
+print(metrics_df)
+
+# Calculate total sales for each product in the past week and month, and create bar charts
+sales_data['Date'] = pd.to_datetime(sales_data['Date'])
+sales_data['Week'] = sales_data['Date'].dt.isocalendar().week
+sales_data['Month'] = sales_data['Date'].dt.month
+sales_by_week = sales_data.groupby(['ProductName', 'Week']).agg({'Sales': 'sum'}).reset_index()
+sales_by_month = sales_data.groupby(['ProductName', 'Month']).agg({'Sales': 'sum'}).reset_index()
+fig, ax = plt.subplots(2, 1, figsize=(10, 10))
+sns.barplot(x='ProductName', y='Sales', hue='Week', data=sales_by_week, ax=ax[0])
+sns.barplot(x='ProductName', y='Sales', hue='Month', data=sales_by_month, ax=ax[1])
+ax[0].set_title('Total Sales by Product in the Past Week')
+ax[1].set_title('Total Sales by Product in the Past Month')
+ax[0].legend(title='Week')
+ax[1].legend(title='Month')
+plt.show()
+
+# Create heatmap of correlation matrix
+corr_matrix = sales_data.corr()
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+plt.title('Correlation Matrix')
+plt.show()
+
+# Create line chart for sales trend of each product throughout the day
+products = sales_data['ProductName'].unique()
+for product in products:
+    sales_by_hour = sales_data.loc[sales_data['ProductName'] == product].groupby('HourOfDay').agg({'Sales': 'sum'}).reset_index()
+    plt.plot(sales_by_hour['HourOfDay'], sales_by_hour['Sales'], label=product)
+    plt.title(f'Sales Trend of {product} Throughout the Day')
+    plt.xlabel('Hour of the Day')
+    plt.ylabel('Sales (USD)')
+    plt.legend()
+    plt.show()
+``
